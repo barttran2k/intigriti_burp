@@ -12,7 +12,8 @@ from javax.swing import (
     JTable,
     JButton,
     JTextArea,
-    ListCellRenderer
+    ListCellRenderer,
+    JComboBox,
 )
 from javax.swing.border import EmptyBorder
 from javax.swing.table import DefaultTableModel
@@ -224,7 +225,7 @@ class TitleBox(JPanel):
             attributes_panel.add(panel)
         
         add_attribute("Status:", program.status)
-        add_attribute("Type:", program.type)
+        add_attribute("Type:", program.program_category)
         add_attribute("Industry:", program.industry if program.industry else "N/A")
         
         bounty_val = "{} - {}".format(program.min_bounty, program.max_bounty) if program.min_bounty != "N/A" else "N/A"
@@ -290,6 +291,12 @@ class ProgramsTab(JPanel):
         self.search_field.addKeyListener(SearchKeyListener(self))
         top_panel.add(self.search_field)
 
+        top_panel.add(JLabel(" Type: "))
+        self.type_filter = JComboBox(["All", "Bug bounty", "VDP"])
+        self.type_filter.setSelectedItem("All")
+        self.type_filter.addActionListener(CallbackActionListener(self.change_type_filter))
+        top_panel.add(self.type_filter)
+
         self.JprogramList = JList()
         self.JprogramList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
         
@@ -324,9 +331,18 @@ class ProgramsTab(JPanel):
         self.splitPane.setRightComponent(JLabel("Refreshing..."))
         self.load_program_list()
 
+    def change_type_filter(self, event):
+        self.filter_programs()
+
     def filter_programs(self):
         query = self.search_field.getText().lower()
-        self.displayed_programs = [p for p in self.programs if query in p.title.lower()]
+        selected_type = str(self.type_filter.getSelectedItem())
+        self.displayed_programs = [
+            p
+            for p in self.programs
+            if query in p.title.lower()
+            and (selected_type == "All" or p.program_category == selected_type)
+        ]
         
         model = DefaultListModel()
         for program in self.displayed_programs:
@@ -335,6 +351,8 @@ class ProgramsTab(JPanel):
         self.JprogramList.setModel(model)
         if self.displayed_programs:
             self.JprogramList.setSelectedIndex(0)
+        else:
+            self.splitPane.setRightComponent(JLabel("No matching programs"))
 
     def load_program_list(self):
         async_call(context.api.get_programs, self.display_program_list, self.display_error)

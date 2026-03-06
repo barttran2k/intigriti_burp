@@ -9,19 +9,26 @@ except NameError:  # pragma: no cover - Python 3 fallback for local checks
 
 
 def _to_money(value, currency="EUR"):
+    value = _to_number(value)
+    if value is None:
+        return None
+    return "{} {}".format(value, currency or "EUR")
+
+
+def _to_number(value):
     if value is None:
         return None
     if isinstance(value, NUMBER_TYPES):
         if isinstance(value, float) and value.is_integer():
-            value = int(value)
-        return "{} {}".format(value, currency or "EUR")
+            return int(value)
+        return value
     try:
         as_number = float(value)
-        if as_number.is_integer():
-            as_number = int(as_number)
-        return "{} {}".format(as_number, currency or "EUR")
     except Exception:
         return None
+    if as_number.is_integer():
+        return int(as_number)
+    return as_number
 
 
 def _extract_money(data, key):
@@ -41,6 +48,23 @@ def _extract_money(data, key):
     return _to_money(raw, data.get("{}Currency".format(key), "EUR"))
 
 
+def _extract_money_value(data, key):
+    if not isinstance(data, dict):
+        return None
+
+    raw = data.get(key, MISSING)
+    if raw is MISSING:
+        return None
+
+    if isinstance(raw, dict):
+        value = raw.get("value", MISSING)
+        if value is MISSING:
+            return None
+        return _to_number(value)
+
+    return _to_number(raw)
+
+
 class Program(object):
     def __init__(self, data, fallback_data=None):
         data = data or {}
@@ -51,7 +75,8 @@ class Program(object):
         self.handle = data.get("handle", "")
         self.name = data.get("name", "")
         self.status = data.get("status", {}).get("value", "Unknown")
-        self.type = data.get("type", {}).get("value", "Unknown")
+        self.api_type = data.get("type", {}).get("value", "Unknown")
+        self.type = self.api_type
 
         self.min_bounty = _extract_money(data, "minBounty")
         self.max_bounty = _extract_money(data, "maxBounty")
@@ -59,6 +84,17 @@ class Program(object):
             self.min_bounty = _extract_money(fallback_data, "minBounty")
         if self.max_bounty is None:
             self.max_bounty = _extract_money(fallback_data, "maxBounty")
+
+        self.min_bounty_value = _extract_money_value(data, "minBounty")
+        self.max_bounty_value = _extract_money_value(data, "maxBounty")
+        if self.min_bounty_value is None:
+            self.min_bounty_value = _extract_money_value(fallback_data, "minBounty")
+        if self.max_bounty_value is None:
+            self.max_bounty_value = _extract_money_value(fallback_data, "maxBounty")
+
+        self.min_bounty_value = self.min_bounty_value if self.min_bounty_value is not None else 0
+        self.max_bounty_value = self.max_bounty_value if self.max_bounty_value is not None else 0
+        self.program_category = "Bug bounty" if self.max_bounty_value > 0 else "VDP"
 
         self.min_bounty = self.min_bounty or "N/A"
         self.max_bounty = self.max_bounty or "N/A"
