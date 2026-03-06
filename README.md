@@ -16,7 +16,7 @@ A lightweight Burp Suite extension (Jython) to browse Intigriti bug bounty progr
 ## Demo
 
 ![Extension demo](images/demo.png)
-
+![Demo](images/test_connect.png)
 ## Requirements
 
 - Burp Suite Community or Professional
