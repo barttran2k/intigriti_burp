@@ -5,7 +5,7 @@ ScreenVersion: 1.0.0
 SerialVersion: 1
 MinPlatformVersion: 0
 ProOnly: False
-Author: bachtcm
+Author: fatman
 ShortDescription: Connect to Intigriti Bug Bounty Program API
 EntryPoint: src/addon.py
 BuildCommand: 
