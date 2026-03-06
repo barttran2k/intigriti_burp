@@ -9,6 +9,9 @@ A lightweight Burp Suite extension (Jython) to browse Intigriti bug bounty progr
 - View program details (status, type, industry, bounty range)
 - Rules of Engagement from markdown-like content
 - Display in-scope assets with tier and description
+- Import scopes into Burp `Target > Scope` using Advanced scope regex
+- `Import All` and `Import Selected` with append + dedupe behavior
+- Skip non-web/invalid scopes and show import status summary
 - Refresh program list on demand
 - Persist API token in Burp extension settings
 
@@ -50,6 +53,10 @@ Open `Extender` -> `Extensions` -> `Add`, then set:
 3. Click `Save` (or `Test Connection`)
 4. Once connected, switch to `Programs`
 5. Use the search box or select a program to view details and scope
+6. In `Scope Details`, click:
+- `Import All to Burp Target`, or
+- `Import Selected to Burp Target` after selecting rows
+7. Verify imported rules in Burp `Target` -> `Scope`
 
 ## Project Structure
 
@@ -65,6 +72,7 @@ Open `Extender` -> `Extensions` -> `Add`, then set:
     |-- helpers.py           # HTTP + async helpers
     |-- BetterJava.py        # Swing helper components
     |-- style.css            # Rules renderer stylesheet
+    |-- target_scope.py      # Endpoint parsing + Burp scope import logic
     |-- api
     |   |-- api.py           # Intigriti API client
     |   `-- models.py        # Program/scope models

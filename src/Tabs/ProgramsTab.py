@@ -19,6 +19,7 @@ from javax.swing.table import DefaultTableModel
 from java.awt import BorderLayout, Dimension, Font, Color, FlowLayout
 from BetterJava import ColumnPanel, make_title_border, SplitPanel, HTMLRenderer, CallbackActionListener
 from helpers import async_call
+from target_scope import TargetScopeImporter
 
 class ProgramRenderer(ListCellRenderer, JLabel):
     def getListCellRendererComponent(self, jlist, program, index, isSelected, cellHashFocus):
@@ -35,7 +36,10 @@ class ProgramRenderer(ListCellRenderer, JLabel):
         return self
 
 class ScopeBox(JPanel):
-    def __init__(self, scopes):
+    def __init__(self, scopes, on_import_all=None, on_import_selected=None):
+        self.scopes = scopes or []
+        self.on_import_all = on_import_all
+        self.on_import_selected = on_import_selected
         self.setLayout(BorderLayout())
         self.setBorder(make_title_border("Scope Details"))
         
@@ -43,11 +47,11 @@ class ScopeBox(JPanel):
         col_names = ["Type", "Endpoint", "Tier"]
         model = DefaultTableModel(col_names, 0)
         
-        for s in scopes:
+        for s in self.scopes:
             model.addRow([s.type, s.endpoint, s.tier])
             
         self.table = JTable(model)
-        self.table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
+        self.table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION)
         self.table.setAutoCreateRowSorter(True)
         
         scroll_table = JScrollPane(self.table)
@@ -68,12 +72,12 @@ class ScopeBox(JPanel):
                     if row >= 0 and row < self.table.getRowCount():
                         # Map view index back to model index due to sorting
                         model_idx = self.table.convertRowIndexToModel(row)
-                        self.desc_area.setText(scopes[model_idx].description)
+                        self.desc_area.setText(self.scopes[model_idx].description)
         
         listener = SelectionListener()
         listener.table = self.table
         listener.desc_area = self.desc_area
-        listener.scopes = scopes
+        listener.scopes = self.scopes
         from javax.swing.event import ListSelectionListener
         class LSListener(ListSelectionListener):
             def __init__(self, l):
@@ -82,6 +86,19 @@ class ScopeBox(JPanel):
                 self.l.valueChanged(e)
 
         self.table.getSelectionModel().addListSelectionListener(LSListener(listener))
+
+        button_panel = JPanel(FlowLayout(FlowLayout.LEFT))
+        self.import_all_btn = JButton("Import All to Burp Target")
+        self.import_all_btn.addActionListener(CallbackActionListener(self._import_all))
+        self.import_selected_btn = JButton("Import Selected to Burp Target")
+        self.import_selected_btn.addActionListener(CallbackActionListener(self._import_selected))
+        button_panel.add(self.import_all_btn)
+        button_panel.add(self.import_selected_btn)
+
+        self.status_label = JLabel("Ready")
+        self.status_label.setOpaque(True)
+        self._set_status("Ready", Color(0xF2F4F7), Color(0x1F2937))
+        button_panel.add(self.status_label)
         
         split = SplitPanel(scroll_table, scroll_desc)
         split.setOrientation(JSplitPane.VERTICAL_SPLIT)
@@ -89,6 +106,78 @@ class ScopeBox(JPanel):
         split.setDividerLocation(350)
         
         self.add(split, BorderLayout.CENTER)
+        self.add(button_panel, BorderLayout.SOUTH)
+
+    def _set_status(self, message, bg=Color.WHITE, fg=Color.BLACK):
+        self.status_label.setText(message)
+        self.status_label.setBackground(bg)
+        self.status_label.setForeground(fg)
+
+    def _preview_skipped(self, skipped):
+        if not skipped:
+            return ""
+        preview = skipped[:2]
+        return "; ".join(
+            "{} ({})".format(item.get("endpoint") or "<empty>", item.get("reason"))
+            for item in preview
+        )
+
+    def _handle_import_result(self, result):
+        if not result:
+            self._set_status("Import failed: no result", Color(0xB80000), Color.WHITE)
+            return
+
+        if not result.get("ok"):
+            message = result.get("message", "Import failed")
+            self._set_status(message, Color(0xB80000), Color.WHITE)
+            return
+
+        message = result.get("message", "Import completed")
+        skipped_preview = self._preview_skipped(result.get("skipped_details", []))
+        if skipped_preview:
+            message = "{} | {}".format(message, skipped_preview)
+
+        if result.get("added", 0) > 0:
+            self._set_status(message, Color(0x006400), Color.WHITE)
+        elif result.get("duplicates", 0) > 0 or result.get("skipped", 0) > 0:
+            self._set_status(message, Color(0xA16207), Color.WHITE)
+        else:
+            self._set_status(message, Color(0x1D4ED8), Color.WHITE)
+
+    def get_selected_scopes(self):
+        selected_rows = self.table.getSelectedRows()
+        scopes = []
+        for row in selected_rows:
+            model_idx = self.table.convertRowIndexToModel(row)
+            if model_idx >= 0 and model_idx < len(self.scopes):
+                scopes.append(self.scopes[model_idx])
+        return scopes
+
+    def _import_all(self, event):
+        if self.on_import_all is None:
+            self._set_status("Import handler is not configured", Color(0xB80000), Color.WHITE)
+            return
+        try:
+            result = self.on_import_all(self.scopes)
+        except Exception as e:
+            self._set_status("Import failed: {}".format(e), Color(0xB80000), Color.WHITE)
+            return
+        self._handle_import_result(result)
+
+    def _import_selected(self, event):
+        if self.on_import_selected is None:
+            self._set_status("Import handler is not configured", Color(0xB80000), Color.WHITE)
+            return
+        selected_scopes = self.get_selected_scopes()
+        if not selected_scopes:
+            self._set_status("No scope selected", Color(0xA16207), Color.WHITE)
+            return
+        try:
+            result = self.on_import_selected(selected_scopes)
+        except Exception as e:
+            self._set_status("Import failed: {}".format(e), Color(0xB80000), Color.WHITE)
+            return
+        self._handle_import_result(result)
 
 import re
 
@@ -157,11 +246,18 @@ class RulesBox(JScrollPane):
 
 
 class ProgramPane(JPanel):
-    def __init__(self, program):
+    def __init__(self, program, on_import_all=None, on_import_selected=None):
         self.setLayout(BorderLayout())
         self.add(TitleBox(program), BorderLayout.NORTH)
         
-        split = SplitPanel(RulesBox(program.rules_html), ScopeBox(program.scopes))
+        split = SplitPanel(
+            RulesBox(program.rules_html),
+            ScopeBox(
+                program.scopes,
+                on_import_all=on_import_all,
+                on_import_selected=on_import_selected,
+            ),
+        )
         split.setDividerLocation(400)
         self.add(split, BorderLayout.CENTER)
 
@@ -170,6 +266,8 @@ class ProgramsTab(JPanel):
     def __init__(self):
         self.programs = []
         self.displayed_programs = []
+        self.current_program_details = None
+        self.scope_importer = TargetScopeImporter(context.callbacks)
         self.setLayout(BorderLayout())
 
         # Top panel with Refresh button and Search Bar
@@ -259,11 +357,20 @@ class ProgramsTab(JPanel):
             self.splitPane.setRightComponent(JPanel())
 
     def display_error(self, error):
+        self.current_program_details = None
         self.JprogramList.setListData(tuple())
         self.splitPane.setRightComponent(JLabel("Error or disconnected: {}".format(error)))
 
+    def import_scopes_to_target(self, scopes):
+        return self.scope_importer.import_scopes(scopes)
+
     def load_program_details(self, pgm_details):
-        pane = ProgramPane(pgm_details)
+        self.current_program_details = pgm_details
+        pane = ProgramPane(
+            pgm_details,
+            on_import_all=self.import_scopes_to_target,
+            on_import_selected=self.import_scopes_to_target,
+        )
         loc = self.splitPane.getDividerLocation()
         self.splitPane.setRightComponent(pane)
         self.splitPane.setDividerLocation(loc)
