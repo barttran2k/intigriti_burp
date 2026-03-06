@@ -5,10 +5,9 @@ A lightweight Burp Suite extension (Jython) to browse Intigriti bug bounty progr
 ## Features
 
 - Connect to the Intigriti Researcher API with your API token
-- Fetch and list up to 500 programs
 - Search programs by name in real time
 - View program details (status, type, industry, bounty range)
-- Render Rules of Engagement from markdown-like content
+- Rules of Engagement from markdown-like content
 - Display in-scope assets with tier and description
 - Refresh program list on demand
 - Persist API token in Burp extension settings
@@ -16,12 +15,13 @@ A lightweight Burp Suite extension (Jython) to browse Intigriti bug bounty progr
 ## Demo
 
 ![Extension demo](images/demo.png)
+
 ![Demo](images/test_connect.png)
 ## Requirements
 
 - Burp Suite Community or Professional
 - Jython standalone JAR configured in Burp (`2.7.x` recommended)
-- Intigriti Researcher API token
+- Intigriti Researcher API token `https://app.intigriti.com/researcher/personal-access-tokens`
 - Internet access to `https://api.intigriti.com`
 
 ## Installation
