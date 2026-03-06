@@ -62,10 +62,10 @@ class IntigritiApi(object):
         records = response.json().get("records", [])
         return [Program(p) for p in records]
 
-    def get_program_details(self, program_id):
+    def get_program_details(self, program_id, fallback_data=None):
         from .models import ProgramDetails
         response = self.get("/programs/{program_id}".format(program_id=program_id))
-        return ProgramDetails(response.json())
+        return ProgramDetails(response.json(), fallback_data=fallback_data)
 
     def change_server(self, url):
         self.server = url.rstrip("/")

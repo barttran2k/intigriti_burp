@@ -1,18 +1,67 @@
 #!/usr/bin/env python
 
+MISSING = object()
+
+try:
+    NUMBER_TYPES = (int, long, float)
+except NameError:  # pragma: no cover - Python 3 fallback for local checks
+    NUMBER_TYPES = (int, float)
+
+
+def _to_money(value, currency="EUR"):
+    if value is None:
+        return None
+    if isinstance(value, NUMBER_TYPES):
+        if isinstance(value, float) and value.is_integer():
+            value = int(value)
+        return "{} {}".format(value, currency or "EUR")
+    try:
+        as_number = float(value)
+        if as_number.is_integer():
+            as_number = int(as_number)
+        return "{} {}".format(as_number, currency or "EUR")
+    except Exception:
+        return None
+
+
+def _extract_money(data, key):
+    if not isinstance(data, dict):
+        return None
+
+    raw = data.get(key, MISSING)
+    if raw is MISSING:
+        return None
+
+    if isinstance(raw, dict):
+        value = raw.get("value", MISSING)
+        if value is MISSING:
+            return None
+        return _to_money(value, raw.get("currency", "EUR"))
+
+    return _to_money(raw, data.get("{}Currency".format(key), "EUR"))
+
+
 class Program(object):
-    def __init__(self, data):
+    def __init__(self, data, fallback_data=None):
+        data = data or {}
+        fallback_data = fallback_data or {}
+
+        self.raw = data
         self.id = data.get("id", "")
         self.handle = data.get("handle", "")
         self.name = data.get("name", "")
         self.status = data.get("status", {}).get("value", "Unknown")
         self.type = data.get("type", {}).get("value", "Unknown")
-        try:
-            self.min_bounty = "{} {}".format(data.get("minBounty", {}).get("value", 0), data.get("minBounty", {}).get("currency", "EUR"))
-            self.max_bounty = "{} {}".format(data.get("maxBounty", {}).get("value", 0), data.get("maxBounty", {}).get("currency", "EUR"))
-        except Exception:
-            self.min_bounty = "N/A"
-            self.max_bounty = "N/A"
+
+        self.min_bounty = _extract_money(data, "minBounty")
+        self.max_bounty = _extract_money(data, "maxBounty")
+        if self.min_bounty is None:
+            self.min_bounty = _extract_money(fallback_data, "minBounty")
+        if self.max_bounty is None:
+            self.max_bounty = _extract_money(fallback_data, "maxBounty")
+
+        self.min_bounty = self.min_bounty or "N/A"
+        self.max_bounty = self.max_bounty or "N/A"
         self.industry = data.get("industry", "")
         
     @property
@@ -29,8 +78,8 @@ class ScopeElement(object):
         self.scope = self.endpoint
 
 class ProgramDetails(Program):
-    def __init__(self, data):
-        super(ProgramDetails, self).__init__(data)
+    def __init__(self, data, fallback_data=None):
+        super(ProgramDetails, self).__init__(data, fallback_data=fallback_data)
         
         self.rules_html = data.get("rulesOfEngagement", {}).get("content", {}).get("description", "")
         

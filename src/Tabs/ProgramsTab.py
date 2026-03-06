@@ -348,8 +348,11 @@ class ProgramsTab(JPanel):
         self.JprogramList.setCellRenderer(ProgramRenderer())
 
         if self.displayed_programs:
+            first_program = self.displayed_programs[0]
             async_call(
-                lambda: context.api.get_program_details(self.displayed_programs[0].id),
+                lambda: context.api.get_program_details(
+                    first_program.id, first_program.raw
+                ),
                 self.load_program_details,
                 self.display_error
             )
@@ -389,9 +392,11 @@ class ProgramsTab(JPanel):
         loading_label.setBorder(EmptyBorder(20, 20, 20, 20))
         self.splitPane.setRightComponent(loading_label)
 
-        program_id = self.displayed_programs[selected_idx].id
+        selected_program = self.displayed_programs[selected_idx]
         async_call(
-            lambda: context.api.get_program_details(program_id), 
+            lambda: context.api.get_program_details(
+                selected_program.id, selected_program.raw
+            ),
             self.load_program_details,
             self.display_error
         )
