@@ -7,6 +7,13 @@ try:
 except NameError:  # pragma: no cover - Python 3 fallback for local checks
     NUMBER_TYPES = (int, float)
 
+try:
+    TEXT_TYPE = unicode
+    BINARY_TYPES = (str, bytearray)
+except NameError:  # pragma: no cover - Python 3 fallback for local checks
+    TEXT_TYPE = str
+    BINARY_TYPES = (bytes, bytearray)
+
 
 def _to_money(value, currency="EUR"):
     value = _to_number(value)
@@ -65,6 +72,45 @@ def _extract_money_value(data, key):
     return _to_number(raw)
 
 
+def _extract_web_link(data):
+    if not isinstance(data, dict):
+        return ""
+
+    web_links = data.get("webLinks", {})
+    if not isinstance(web_links, dict):
+        return ""
+
+    detail = web_links.get("detail", "")
+    if detail is None:
+        return ""
+    return _to_text(detail)
+
+
+def _to_text(value):
+    if value is None:
+        return ""
+
+    if isinstance(value, TEXT_TYPE):
+        return value.strip()
+
+    if isinstance(value, BINARY_TYPES):
+        try:
+            return value.decode("utf-8").strip()
+        except Exception:
+            try:
+                return value.decode("latin-1").strip()
+            except Exception:
+                return ""
+
+    try:
+        return TEXT_TYPE(value).strip()
+    except Exception:
+        try:
+            return "{}".format(value).strip()
+        except Exception:
+            return ""
+
+
 class Program(object):
     def __init__(self, data, fallback_data=None):
         data = data or {}
@@ -77,6 +123,7 @@ class Program(object):
         self.status = data.get("status", {}).get("value", "Unknown")
         self.api_type = data.get("type", {}).get("value", "Unknown")
         self.type = self.api_type
+        self.web_link = _extract_web_link(data) or _extract_web_link(fallback_data) or ""
 
         self.min_bounty = _extract_money(data, "minBounty")
         self.max_bounty = _extract_money(data, "maxBounty")

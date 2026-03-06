@@ -17,7 +17,8 @@ from javax.swing import (
 )
 from javax.swing.border import EmptyBorder
 from javax.swing.table import DefaultTableModel
-from java.awt import BorderLayout, Dimension, Font, Color, FlowLayout
+from java.awt import BorderLayout, Dimension, Font, Color, FlowLayout, Toolkit
+from java.awt.datatransfer import StringSelection
 from BetterJava import ColumnPanel, make_title_border, SplitPanel, HTMLRenderer, CallbackActionListener
 from helpers import async_call
 from target_scope import TargetScopeImporter
@@ -223,6 +224,12 @@ class TitleBox(JPanel):
             panel.add(lbl)
             panel.add(val)
             attributes_panel.add(panel)
+            return val
+
+        def shorten_text(value, limit=90):
+            if len(value) <= limit:
+                return value
+            return value[: limit - 3] + "..."
         
         add_attribute("Status:", program.status)
         add_attribute("Type:", program.program_category)
@@ -230,6 +237,37 @@ class TitleBox(JPanel):
         
         bounty_val = "{} - {}".format(program.min_bounty, program.max_bounty) if program.min_bounty != "N/A" else "N/A"
         add_attribute("Bounty:", bounty_val)
+
+        web_link = program.web_link or "N/A"
+        if web_link == "N/A":
+            add_attribute("Web link:", web_link)
+        else:
+            web_panel = JPanel(FlowLayout(FlowLayout.LEFT, 2, 0))
+            web_lbl = JLabel("Web link:")
+            web_lbl.setFont(Font("Arial", Font.BOLD, 12))
+            web_link_label = JLabel(shorten_text(web_link))
+            web_link_label.setFont(Font("Arial", Font.PLAIN, 12))
+            web_link_label.setToolTipText(web_link)
+
+            copy_btn = JButton("Copy")
+            copy_btn.setFont(Font("Arial", Font.PLAIN, 11))
+            copy_btn.setToolTipText("Copy full project URL")
+
+            def copy_web_link(event):
+                try:
+                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(
+                        StringSelection(web_link), None
+                    )
+                    copy_btn.setText("Copied")
+                except Exception:
+                    copy_btn.setText("Error")
+
+            copy_btn.addActionListener(CallbackActionListener(copy_web_link))
+
+            web_panel.add(web_lbl)
+            web_panel.add(web_link_label)
+            web_panel.add(copy_btn)
+            attributes_panel.add(web_panel)
 
         self.add(title, BorderLayout.NORTH)
         self.add(attributes_panel, BorderLayout.SOUTH)
