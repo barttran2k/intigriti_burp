@@ -434,6 +434,28 @@ class ProgramsTab(JPanel):
         self.splitPane.setRightComponent(pane)
         self.splitPane.setDividerLocation(loc)
 
+    def handle_select_error(self, error):
+        """
+        Handle errors when loading program details.
+        On 403 errors, automatically recover by reloading the program list.
+        On other errors, display the error message.
+        """
+        from api import APIException
+        
+        # Check if this is a 403 error (forbidden/unauthorized)
+        if isinstance(error, APIException) and error.code == 403:
+            # Show loading indicator and recover by reloading program list
+            loading_label = JLabel("Loading...")
+            loading_label.setFont(Font("Arial", Font.BOLD, 14))
+            loading_label.setBorder(EmptyBorder(20, 20, 20, 20))
+            self.splitPane.setRightComponent(loading_label)
+            
+            # Reload program list to recover
+            self.load_program_list()
+        else:
+            # For non-403 errors, display error message but keep program list intact
+            self.splitPane.setRightComponent(JLabel("Error loading details: {}".format(error)))
+
     def handle_select(self, event):
         jlist = event.getSource()
         if event.getValueIsAdjusting():
@@ -450,9 +472,9 @@ class ProgramsTab(JPanel):
 
         selected_program = self.displayed_programs[selected_idx]
         async_call(
-            lambda: context.api.get_program_details(
+            lambda: context.api.get_program_details_with_retry(
                 selected_program.id, selected_program.raw
             ),
             self.load_program_details,
-            self.display_error
+            self.handle_select_error
         )

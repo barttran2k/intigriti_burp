@@ -67,6 +67,41 @@ class IntigritiApi(object):
         response = self.get("/programs/{program_id}".format(program_id=program_id))
         return ProgramDetails(response.json(), fallback_data=fallback_data)
 
+    def get_program_details_with_retry(self, program_id, fallback_data=None, max_retries=2):
+        """
+        Get program details with automatic retry on 403 errors.
+        Retries immediately up to max_retries times if 403 error occurs.
+        
+        Args:
+            program_id: The program ID to fetch
+            fallback_data: Fallback data if fetch fails
+            max_retries: Maximum number of retries (default: 2)
+        
+        Returns:
+            ProgramDetails object
+            
+        Raises:
+            APIException if all retries are exhausted or non-403 error occurs
+        """
+        retry_count = 0
+        last_error = None
+        
+        while retry_count < max_retries:
+            try:
+                return self.get_program_details(program_id, fallback_data)
+            except APIException as e:
+                last_error = e
+                # Only retry on 403 errors
+                if e.code == 403:
+                    retry_count += 1
+                    # If we've exhausted retries, raise the error
+                    if retry_count >= max_retries:
+                        raise
+                    # Otherwise, continue to retry
+                else:
+                    # Non-403 errors: raise immediately
+                    raise
+
     def change_server(self, url):
         self.server = url.rstrip("/")
 
