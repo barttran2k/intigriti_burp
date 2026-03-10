@@ -119,25 +119,35 @@ class ScopeBox(JPanel):
         if not skipped:
             return ""
         preview = skipped[:2]
-        return "; ".join(
-            "{} ({})".format(item.get("endpoint") or "<empty>", item.get("reason"))
-            for item in preview
-        )
+        parts = []
+        for item in preview:
+            endpoint = item.get("endpoint") or u"<empty>"
+            reason = item.get("reason") or u""
+            if isinstance(endpoint, bytes):
+                endpoint = endpoint.decode("utf-8", "replace")
+            if isinstance(reason, bytes):
+                reason = reason.decode("utf-8", "replace")
+            parts.append(u"{} ({})".format(endpoint, reason))
+        return u"; ".join(parts)
 
     def _handle_import_result(self, result):
         if not result:
-            self._set_status("Import failed: no result", Color(0xB80000), Color.WHITE)
+            self._set_status(u"Import failed: no result", Color(0xB80000), Color.WHITE)
             return
 
         if not result.get("ok"):
-            message = result.get("message", "Import failed")
+            message = result.get("message", u"Import failed")
+            if isinstance(message, bytes):
+                message = message.decode("utf-8", "replace")
             self._set_status(message, Color(0xB80000), Color.WHITE)
             return
 
-        message = result.get("message", "Import completed")
+        message = result.get("message", u"Import completed")
+        if isinstance(message, bytes):
+            message = message.decode("utf-8", "replace")
         skipped_preview = self._preview_skipped(result.get("skipped_details", []))
         if skipped_preview:
-            message = "{} | {}".format(message, skipped_preview)
+            message = u"{} | {}".format(message, skipped_preview)
 
         if result.get("added", 0) > 0:
             self._set_status(message, Color(0x006400), Color.WHITE)
