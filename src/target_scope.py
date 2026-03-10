@@ -117,7 +117,7 @@ def _build_file_regex(path):
         return ""
 
     escaped = re.escape(normalized).replace(r"\*", ".*")
-    return r"^{}(?:/.*)?$".format(escaped)
+    return r"{}(?:/.*)?$".format(escaped)
 
 
 def _build_host_regex(host):
@@ -125,16 +125,16 @@ def _build_host_regex(host):
         base_domain = host[2:]
         if not _is_valid_domain(base_domain):
             return None, "Invalid wildcard domain"
-        return r"(?:^|.*\.){}$".format(re.escape(base_domain)), None
+        return r"(?:.*\.){}$".format(re.escape(base_domain)), None
 
     if "*" in host:
         return None, "Wildcard is only supported as *.<domain>"
 
     if _is_ipv4(host):
-        return r"^{}$".format(re.escape(host)), None
+        return r"{}$".format(re.escape(host)), None
 
     if _is_valid_domain(host):
-        return r"^{}$".format(re.escape(host)), None
+        return r"{}$".format(re.escape(host)), None
 
     return None, "Host is neither valid domain nor IPv4"
 
@@ -165,7 +165,7 @@ def build_rule_from_scope(scope_element):
         return None, host_error
 
     protocol = scheme if scheme in ("http", "https") else "any"
-    port_regex = r"^{}$".format(port) if port else ""
+    port_regex = r"{}$".format(port) if port else ""
     file_regex = _build_file_regex(path)
 
     return (
